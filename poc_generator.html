@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PoC Infra Scaffold</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117; color: #c9d1d9;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  height: 100vh; display: flex; flex-direction: column;
+}
+header {
+  background: #161b22; border-bottom: 1px solid #30363d;
+  padding: 12px 20px; display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+header h1 { font-size: 0.95rem; font-weight: 600; }
+.badge {
+  background: #388bfd22; color: #58a6ff;
+  border: 1px solid #388bfd55; border-radius: 10px;
+  padding: 1px 9px; font-size: 0.7rem; font-weight: 600;
+}
+.body { display: flex; flex: 1; overflow: hidden; }
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: #161b22; border-right: 1px solid #30363d;
+  overflow-y: auto; padding: 8px 0;
+}
+.grp-label {
+  padding: 10px 14px 4px;
+  font-size: 0.65rem; font-weight: 700;
+  color: #8b949e; text-transform: uppercase; letter-spacing: 1px;
+}
+.file-btn {
+  width: 100%; text-align: left;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border: none; background: none;
+  color: #8b949e; font-size: 0.8rem; cursor: pointer;
+  border-left: 2px solid transparent;
+  font-family: 'Consolas', monospace;
+  transition: background .1s, color .1s;
+  white-space: nowrap; overflow: hidden;
+}
+.file-btn:hover { background: #ffffff0a; color: #c9d1d9; }
+.file-btn.active { background: #388bfd18; color: #58a6ff; border-left-color: #58a6ff; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar {
+  background: #161b22; border-bottom: 1px solid #30363d;
+  padding: 8px 16px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
+}
+.cur-file { font-family: 'Consolas', monospace; font-size: 0.82rem; color: #c9d1d9; }
+.btns { display: flex; gap: 8px; }
+.btn {
+  padding: 5px 13px; border-radius: 5px;
+  border: 1px solid #30363d; background: #21262d;
+  color: #c9d1d9; font-size: 0.78rem; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.btn:hover { border-color: #58a6ff; background: #388bfd18; color: #58a6ff; }
+.btn-green { background: #238636; border-color: #2ea043; color: #fff; }
+.btn-green:hover { background: #2ea043; border-color: #3fb950; color: #fff; }
+.code-wrap { flex: 1; overflow: auto; background: #1a1e24; }
+pre {
+  padding: 20px 24px; margin: 0;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem; line-height: 1.65;
+  color: #c9d1d9; white-space: pre;
+}
+.footer {
+  background: #161b22; border-top: 1px solid #30363d;
+  padding: 8px 16px; display: flex; justify-content: space-between;
+  font-size: 0.75rem; color: #8b949e; flex-shrink: 0;
+}
+.footer strong { color: #c9d1d9; }
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #238636; color: #fff;
+  padding: 9px 16px; border-radius: 7px;
+  font-size: 0.8rem; font-weight: 500;
+  opacity: 0; transform: translateY(6px);
+  transition: all .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2">
+    <rect x="2" y="3" width="20" height="14" rx="2"/>
+    <path d="M8 21h8M12 17v4"/>
+  </svg>
+  <h1>poc-infra — Scaffold Generator</h1>
+  <span class="badge">PoC</span>
+  <span class="badge" id="file-count" style="background:#3fb95022;color:#3fb950;border-color:#3fb95055;"></span>
+</header>
+
+<div class="body">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="toolbar">
+      <span class="cur-file" id="cur-file">—</span>
+      <div class="btns">
+        <button class="btn" onclick="copyFile()">📋 Copy</button>
+        <button class="btn" onclick="dlFile()">⬇ File</button>
+        <button class="btn btn-green" onclick="dlAll()">📦 Download All</button>
+      </div>
+    </div>
+    <div class="code-wrap"><pre id="code"></pre></div>
+    <div class="footer">
+      <span>Run <strong>bash poc-infra.sh</strong> to extract · Ubuntu 22.04+ required</span>
+      <span><strong>4 commands</strong> to a running PoC</span>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// All file contents stored as plain strings (no backtick templates)
+// to avoid JS template literal conflicts with ${} in file content.
+var FILES = [];
+
+function f(path, icon, group, content) {
+  FILES.push({ path: path, icon: icon, group: group, content: content });
+}
+
+f("README.md", "📖", "Root", [
+  "# poc-infra",
+  "",
+  "Bare-minimum proof of concept for an on-premise infrastructure stack.",
+  "**AIM · VM Provisioning · WireGuard Security**",
+  "",
+  "## Stack",
+  "",
+  "| Component    | Tool                 | Role                        |",
+  "|--------------|----------------------|-----------------------------|",
+  "| Identity     | Keycloak 24          | OIDC / user management      |",
+  "| Secrets      | HashiCorp Vault 1.16 | Key/secret lifecycle        |",
+  "| Policy       | OPA 0.65             | Provisioning authorization  |",
+  "| Hypervisor   | KVM / libvirt        | VM runtime                  |",
+  "| Provisioning | Terraform + libvirt  | Declarative VM lifecycle    |",
+  "| Tunnel       | WireGuard            | Encrypted VM network        |",
+  "",
+  "## Requirements",
+  "",
+  "- Ubuntu 22.04 LTS",
+  "- 16 GB RAM, 4 cores, 100 GB free disk",
+  "- VT-x / AMD-V enabled in BIOS",
+  "- Internet access",
+  "",
+  "## Quickstart",
+  "",
+  "```bash",
+  "# 1. Install dependencies",
+  "sudo apt update && sudo apt install -y \\",
+  "  qemu-kvm libvirt-daemon-system libvirt-clients virtinst \\",
+  "  wireguard wireguard-tools docker.io docker-compose-plugin \\",
+  "  curl jq git unzip",
+  "",
+  "curl -fsSL https://apt.releases.hashicorp.com/gpg \\",
+  "  | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp.gpg",
+  'echo "deb [signed-by=/usr/share/keyrings/hashicorp.gpg] \\',
+  "  https://apt.releases.hashicorp.com $(lsb_release -cs) main\" \\",
+  "  | sudo tee /etc/apt/sources.list.d/hashicorp.list",
+  "sudo apt update && sudo apt install -y terraform",
+  "",
+  "sudo usermod -aG libvirt,docker $USER && newgrp libvirt",
+  "",
+  "# 2. Start AIM stack",
+  "docker compose up -d",
+  "",
+  "# 3. Bootstrap Vault + OPA + WireGuard",
+  "bash scripts/bootstrap.sh",
+  "",
+  "# 4. Provision a VM (full workflow)",
+  "bash scripts/provision-vm.sh vm-operators dev poc-vm-001",
+  "",
+  "# 5. Test policy denial",
+  "bash scripts/provision-vm.sh dev-team prod poc-vm-002",
+  "```",
+  "",
+  "## Access",
+  "",
+  "| Service   | URL                    | Credentials |",
+  "|-----------|------------------------|-------------|",
+  "| Keycloak  | http://localhost:8080  | admin/admin |",
+  "| Vault     | http://localhost:8200  | token: root |",
+  "| OPA       | http://localhost:8181  | —           |",
+  "",
+  "## Teardown",
+  "",
+  "```bash",
+  "bash scripts/teardown.sh poc-vm-001",
+  "```"
+].join("\n"));
+
+f("docker-compose.yml", "🐳", "Root", [
+  'version: "3.9"',
+  "",
+  "services:",
+  "",
+  "  keycloak:",
+  "    image: quay.io/keycloak/keycloak:24.0",
+  "    command: start-dev",
+  "    container_name: poc-keycloak",
+  "    environment:",
+  "      KEYCLOAK_ADMIN: admin",
+  "      KEYCLOAK_ADMIN_PASSWORD: admin",
+  "      KC_HTTP_PORT: 8080",
+  "    ports:",
+  '      - "8080:8080"',
+  "    volumes:",
+  "      - keycloak_data:/opt/keycloak/data",
+  "    healthcheck:",
+  '      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]',
+  "      interval: 15s",
+  "      timeout: 5s",
+  "      retries: 8",
+  "",
+  "  vault:",
+  "    image: hashicorp/vault:1.16",
+  "    command: server -dev -dev-root-token-id=root",
+  "    container_name: poc-vault",
+  "    environment:",
+  "      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200",
+  "      VAULT_ADDR: http://0.0.0.0:8200",
+  "    ports:",
+  '      - "8200:8200"',
+  "    cap_add:",
+  "      - IPC_LOCK",
+  "    healthcheck:",
+  '      test: ["CMD", "vault", "status"]',
+  "      interval: 10s",
+  "      timeout: 3s",
+  "      retries: 5",
+  "",
+  "  opa:",
+  "    image: openpolicyagent/opa:latest",
+  "    command: run --server --addr 0.0.0.0:8181 /policies",
+  "    container_name: poc-opa",
+  "    ports:",
+  '      - "8181:8181"',
+  "    volumes:",
+  "      - ./opa/policies:/policies",
+  "    healthcheck:",
+  '      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]',
+  "      interval: 10s",
+  "      timeout: 3s",
+  "      retries: 5",
+  "",
+  "volumes:",
+  "  keycloak_data:"
+].join("\n"));
+
+f("opa/policies/vm_provision.rego", "📜", "OPA", [
+  "package infra.authz.vm",
+  "",
+  "import future.keywords.in",
+  "",
+  "default allow := false",
+  "",
+  "allow {",
+  "  not deny[_]",
+  "  valid_group",
+  "  valid_env",
+  "}",
+  "",
+  'valid_group {',
+  '  input.user.group in {"infra-admins", "vm-operators", "dev-team"}',
+  "}",
+  "",
+  "valid_env {",
+  '  input.request.env in {"prod", "dev", "staging"}',
+  "}",
+  "",
+  '# dev-team restricted to dev only',
+  'deny["dev-team is restricted to the dev environment"] {',
+  '  input.user.group == "dev-team"',
+  '  input.request.env != "dev"',
+  "}",
+  "",
+  "# CPU quota per group",
+  "deny[msg] {",
+  "  quotas := {",
+  '    "dev-team":     2,',
+  '    "vm-operators": 8,',
+  '    "infra-admins": 16',
+  "  }",
+  "  input.request.cpu > quotas[input.user.group]",
+  '  msg := sprintf("CPU %d exceeds quota %d for group \'%s\'",',
+  "    [input.request.cpu, quotas[input.user.group], input.user.group])",
+  "}",
+  "",
+  "# RAM quota per group (GB)",
+  "deny[msg] {",
+  "  quotas := {",
+  '    "dev-team":     4,',
+  '    "vm-operators": 16,',
+  '    "infra-admins": 32',
+  "  }",
+  "  input.request.ram_gb > quotas[input.user.group]",
+  '  msg := sprintf("RAM %dGB exceeds quota %dGB for group \'%s\'",',
+  "    [input.request.ram_gb, quotas[input.user.group], input.user.group])",
+  "}",
+  "",
+  "# Management VLAN reserved",
+  'deny["VLAN 10 is reserved for management"] {',
+  "  input.request.vlan == 10",
+  "}"
+].join("\n"));
+
+f("vault/policy/dev-vm.hcl", "🔐", "Vault", [
+  "# Vault policy: dev-vm",
+  "# Applied to: dev-team VMs and service accounts",
+  "",
+  'path "secret/data/wireguard/*" {',
+  '  capabilities = ["read"]',
+  "}",
+  "",
+  'path "secret/data/vms/*" {',
+  '  capabilities = ["read", "create"]',
+  "}",
+  "",
+  'path "auth/token/renew-self" {',
+  '  capabilities = ["update"]',
+  "}",
+  "",
+  'path "auth/token/lookup-self" {',
+  '  capabilities = ["read"]',
+  "}"
+].join("\n"));
+
+f("vault/policy/prod-vm.hcl", "🔐", "Vault", [
+  "# Vault policy: prod-vm",
+  "# Applied to: vm-operators and infra-admins",
+  "",
+  'path "secret/data/wireguard/*" {',
+  '  capabilities = ["read"]',
+  "}",
+  "",
+  'path "secret/data/vms/*" {',
+  '  capabilities = ["read", "create", "update", "list"]',
+  "}",
+  "",
+  'path "secret/metadata/vms/*" {',
+  '  capabilities = ["list", "read"]',
+  "}",
+  "",
+  'path "auth/token/renew-self" {',
+  '  capabilities = ["update"]',
+  "}",
+  "",
+  'path "auth/token/lookup-self" {',
+  '  capabilities = ["read"]',
+  "}"
+].join("\n"));
+
+f("terraform/main.tf", "🏗", "Terraform", [
+  "terraform {",
+  "  required_providers {",
+  "    libvirt = {",
+  '      source  = "dmacvicar/libvirt"',
+  '      version = "~> 0.7"',
+  "    }",
+  "  }",
+  "}",
+  "",
+  'provider "libvirt" {',
+  '  uri = "qemu:///system"',
+  "}",
+  "",
+  "# Base OS image — downloaded once, reused for all VMs",
+  'resource "libvirt_volume" "base_image" {',
+  '  name   = "ubuntu-22.04-base.qcow2"',
+  '  pool   = "default"',
+  '  source = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"',
+  '  format = "qcow2"',
+  "}",
+  "",
+  "# VM disk cloned from base",
+  'resource "libvirt_volume" "vm_disk" {',
+  '  name           = "${var.vm_name}.qcow2"',
+  '  pool           = "default"',
+  "  base_volume_id = libvirt_volume.base_image.id",
+  "  size           = var.disk_bytes",
+  '  format         = "qcow2"',
+  "}",
+  "",
+  "# Cloud-init ISO",
+  'resource "libvirt_cloudinit_disk" "vm_init" {',
+  '  name      = "${var.vm_name}-init.iso"',
+  '  pool      = "default"',
+  '  user_data = templatefile("${path.module}/cloud-init.tpl", {',
+  "    hostname     = var.vm_name",
+  "    vault_addr   = var.vault_addr",
+  "    vault_token  = var.vault_token",
+  '    wg_host_pub  = trimspace(file("/etc/wireguard/host.pub"))',
+  "    wg_host_addr = var.wg_host_addr",
+  "    vm_wg_ip     = var.vm_wg_ip",
+  "  })",
+  "}",
+  "",
+  "# VM definition",
+  'resource "libvirt_domain" "vm" {',
+  "  name   = var.vm_name",
+  "  vcpu   = var.cpu",
+  "  memory = var.ram_mb",
+  "",
+  "  disk { volume_id = libvirt_volume.vm_disk.id }",
+  "  disk { volume_id = libvirt_cloudinit_disk.vm_init.id }",
+  "",
+  "  network_interface {",
+  '    network_name   = "default"',
+  "    wait_for_lease = true",
+  "  }",
+  "",
+  "  console {",
+  '    type        = "pty"',
+  '    target_type = "serial"',
+  '    target_port = "0"',
+  "  }",
+  "",
+  "  graphics {",
+  '    type        = "vnc"',
+  '    listen_type = "address"',
+  "    autoport    = true",
+  "  }",
+  "}",
+  "",
+  "output \"vm_ip\" {",
+  "  value       = libvirt_domain.vm.network_interface[0].addresses[0]",
+  '  description = "IP address assigned to VM by libvirt DHCP"',
+  "}",
+  "",
+  "output \"vm_name\" {",
+  "  value = libvirt_domain.vm.name",
+  "}"
+].join("\n"));
+
+f("terraform/variables.tf", "📋", "Terraform", [
+  'variable "vm_name" {',
+  '  description = "Name of the VM (also used as hostname)"',
+  "  type        = string",
+  '  default     = "poc-vm-001"',
+  "}",
+  "",
+  'variable "cpu" {',
+  '  description = "Number of virtual CPUs"',
+  "  type        = number",
+  "  default     = 2",
+  "}",
+  "",
+  'variable "ram_mb" {',
+  '  description = "RAM in megabytes"',
+  "  type        = number",
+  "  default     = 2048",
+  "}",
+  "",
+  'variable "disk_bytes" {',
+  '  description = "Disk size in bytes (default 10 GB)"',
+  "  type        = number",
+  "  default     = 10737418240",
+  "}",
+  "",
+  'variable "vault_addr" {',
+  '  description = "Vault address reachable from inside the VM"',
+  "  type        = string",
+  '  default     = "http://10.0.2.2:8200"',
+  "}",
+  "",
+  'variable "vault_token" {',
+  '  description = "Vault token (use AppRole in production)"',
+  "  type        = string",
+  "  sensitive   = true",
+  '  default     = "root"',
+  "}",
+  "",
+  'variable "wg_host_addr" {',
+  '  description = "WireGuard gateway endpoint (host:port)"',
+  "  type        = string",
+  '  default     = "10.0.2.2:51820"',
+  "}",
+  "",
+  'variable "vm_wg_ip" {',
+  '  description = "IP assigned to this VM inside the WireGuard tunnel"',
+  "  type        = string",
+  '  default     = "10.100.0.10"',
+  "}"
+].join("\n"));
+
+f("terraform/cloud-init.tpl", "☁", "Terraform", [
+  "#cloud-config",
+  "hostname: ${hostname}",
+  "manage_etc_hosts: true",
+  "",
+  "users:",
+  "  - name: svc",
+  "    groups: sudo",
+  "    shell: /bin/bash",
+  "    sudo: ['ALL=(ALL) NOPASSWD:ALL']",
+  "    lock_passwd: true",
+  "",
+  "package_update: true",
+  "packages:",
+  "  - wireguard",
+  "  - wireguard-tools",
+  "  - curl",
+  "  - jq",
+  "",
+  "runcmd:",
+  "  # 1. Fetch WireGuard private key from Vault",
+  "  - |",
+  "    PRIVKEY=$(curl -sf \\",
+  "      -H \"X-Vault-Token: ${vault_token}\" \\",
+  "      \"${vault_addr}/v1/secret/data/wireguard/${hostname}\" \\",
+  "      | jq -r '.data.data.private_key')",
+  "    if [ -z \"$PRIVKEY\" ] || [ \"$PRIVKEY\" = \"null\" ]; then",
+  "      echo \"[cloud-init] ERROR: Could not fetch WireGuard key\"; exit 1",
+  "    fi",
+  "",
+  "  # 2. Write WireGuard config",
+  "  - |",
+  "    cat > /etc/wireguard/wg0.conf <<WG",
+  "    [Interface]",
+  "    PrivateKey = $PRIVKEY",
+  "    Address    = ${vm_wg_ip}/24",
+  "",
+  "    [Peer]",
+  "    PublicKey  = ${wg_host_pub}",
+  "    Endpoint   = ${wg_host_addr}",
+  "    AllowedIPs = 10.100.0.0/24",
+  "    PersistentKeepalive = 25",
+  "    WG",
+  "",
+  "  # 3. Bring up tunnel",
+  "  - systemctl enable wg-quick@wg0",
+  "  - systemctl start wg-quick@wg0",
+  "  - echo \"[cloud-init] WireGuard tunnel up at ${vm_wg_ip}\""
+].join("\n"));
+
+f("scripts/bootstrap.sh", "⚙", "Scripts", [
+  "#!/usr/bin/env bash",
+  "# bootstrap.sh — One-shot seed for Vault, OPA, and WireGuard",
+  "set -euo pipefail",
+  "",
+  "G='\\033[0;32m' Y='\\033[1;33m' R='\\033[0;31m' B='\\033[0;34m' N='\\033[0m'",
+  "ok()   { echo -e \"${G}checkmark${N} $1\"; }",
+  "warn() { echo -e \"${Y}!${N} $1\"; }",
+  "fail() { echo -e \"${R}x${N} $1\"; exit 1; }",
+  "info() { echo -e \"${B}>${N} $1\"; }",
+  "",
+  "export VAULT_ADDR=http://localhost:8200",
+  "export VAULT_TOKEN=root",
+  "",
+  "echo ''",
+  "echo '╔══════════════════════════════════════════╗'",
+  "echo '║         poc-infra  bootstrap             ║'",
+  "echo '╚══════════════════════════════════════════╝'",
+  "echo ''",
+  "",
+  "# 1. Wait for all services",
+  "echo '==> [1/6] Waiting for services...'",
+  "wait_for() {",
+  "  local url=$1 label=$2",
+  "  for i in $(seq 1 24); do",
+  "    curl -sf \"$url\" > /dev/null 2>&1 && ok \"$label ready\" && return",
+  "    sleep 5",
+  "  done",
+  "  fail \"$label did not start in time\"",
+  "}",
+  "wait_for 'http://localhost:8200/v1/sys/health' 'Vault'",
+  "wait_for 'http://localhost:8181/health'         'OPA'",
+  "wait_for 'http://localhost:8080/health/ready'   'Keycloak'",
+  "",
+  "# 2. Vault — enable engines",
+  "echo ''",
+  "echo '==> [2/6] Configuring Vault...'",
+  "vault secrets enable -path=secret kv-v2  2>/dev/null || warn 'KV v2 already enabled'",
+  "vault auth enable approle                2>/dev/null || warn 'AppRole already enabled'",
+  "vault audit enable file file_path=/tmp/vault-audit.log 2>/dev/null || warn 'Audit already enabled'",
+  "ok 'Vault engines configured'",
+  "",
+  "# 3. Write policies",
+  "echo ''",
+  "echo '==> [3/6] Writing Vault policies...'",
+  "vault policy write dev-vm  vault/policy/dev-vm.hcl",
+  "vault policy write prod-vm vault/policy/prod-vm.hcl",
+  "ok 'Policies: dev-vm, prod-vm'",
+  "",
+  "# 4. AppRole for Terraform",
+  "echo ''",
+  "echo '==> [4/6] Creating Terraform AppRole...'",
+  "vault write auth/approle/role/terraform \\",
+  "  token_policies='dev-vm,prod-vm' \\",
+  "  token_ttl=1h token_max_ttl=4h",
+  "ROLE_ID=$(vault read -field=role_id auth/approle/role/terraform/role-id)",
+  "SECRET_ID=$(vault write -f -field=secret_id auth/approle/role/terraform/secret-id)",
+  "ok 'AppRole created'",
+  "info \"role_id:   $ROLE_ID\"",
+  "info \"secret_id: $SECRET_ID\"",
+  "",
+  "# 5. WireGuard setup",
+  "echo ''",
+  "echo '==> [5/6] Setting up WireGuard...'",
+  "if [ ! -f /etc/wireguard/host.key ]; then",
+  "  wg genkey | sudo tee /etc/wireguard/host.key | \\",
+  "    wg pubkey | sudo tee /etc/wireguard/host.pub > /dev/null",
+  "  sudo chmod 600 /etc/wireguard/host.key",
+  "  ok 'Host keypair generated'",
+  "else",
+  "  warn 'Host keypair exists — skipping'",
+  "fi",
+  "",
+  "VM_PRIV=$(wg genkey)",
+  "VM_PUB=$(echo \"$VM_PRIV\" | wg pubkey)",
+  "vault kv put secret/wireguard/poc-vm-001 \\",
+  "  private_key=\"$VM_PRIV\" public_key=\"$VM_PUB\"",
+  "ok 'VM WireGuard keys stored in Vault (poc-vm-001)'",
+  "",
+  "sudo tee /etc/wireguard/wg0.conf > /dev/null <<WG",
+  "[Interface]",
+  "PrivateKey = $(sudo cat /etc/wireguard/host.key)",
+  "Address    = 10.100.0.1/24",
+  "ListenPort = 51820",
+  "# poc-vm-001 peer — add after VM boots:",
+  "# [Peer]",
+  "# PublicKey  = $VM_PUB",
+  "# AllowedIPs = 10.100.0.10/32",
+  "WG",
+  "",
+  "sudo systemctl enable --now wg-quick@wg0",
+  "ok 'wg0 up at 10.100.0.1'",
+  "info \"VM public key: $VM_PUB\"",
+  "",
+  "# 6. Smoke-test OPA",
+  "echo ''",
+  "echo '==> [6/6] Verifying OPA policies...'",
+  "ALLOW=$(curl -sf -X POST http://localhost:8181/v1/data/infra/authz/vm \\",
+  "  -H 'Content-Type: application/json' \\",
+  "  -d '{\"input\":{\"user\":{\"group\":\"vm-operators\"},\"request\":{\"env\":\"dev\",\"cpu\":2,\"ram_gb\":4,\"vlan\":20}}}' \\",
+  "  | jq -r '.result.allow')",
+  "DENY=$(curl -sf -X POST http://localhost:8181/v1/data/infra/authz/vm \\",
+  "  -H 'Content-Type: application/json' \\",
+  "  -d '{\"input\":{\"user\":{\"group\":\"dev-team\"},\"request\":{\"env\":\"prod\",\"cpu\":2,\"ram_gb\":4,\"vlan\":20}}}' \\",
+  "  | jq -r '.result.allow')",
+  "[ \"$ALLOW\" = 'true'  ] && ok 'ALLOW: vm-operators -> dev (expected)'  || fail 'Allow test failed'",
+  "[ \"$DENY\"  = 'false' ] && ok 'DENY:  dev-team -> prod (expected)'     || fail 'Deny test failed'",
+  "",
+  "echo ''",
+  "echo '╔══════════════════════════════════════════╗'",
+  "echo '║  Bootstrap complete                      ║'",
+  "echo '╠══════════════════════════════════════════╣'",
+  "echo '║  Keycloak  http://localhost:8080         ║'",
+  "echo '║  Vault     http://localhost:8200         ║'",
+  "echo '║  OPA       http://localhost:8181         ║'",
+  "echo '║  WireGuard wg0  10.100.0.1/24           ║'",
+  "echo '╠══════════════════════════════════════════╣'",
+  "echo '║  Next:                                   ║'",
+  "echo '║  bash scripts/provision-vm.sh \\          ║'",
+  "echo '║    vm-operators dev poc-vm-001           ║'",
+  "echo '╚══════════════════════════════════════════╝'",
+  "echo ''"
+].join("\n"));
+
+f("scripts/provision-vm.sh", "🚀", "Scripts", [
+  "#!/usr/bin/env bash",
+  "# provision-vm.sh — Full workflow: OPA -> Vault -> Terraform -> WireGuard",
+  "# Usage: bash scripts/provision-vm.sh <group> <env> <vm-name>",
+  "set -euo pipefail",
+  "",
+  "GROUP=${1:-vm-operators}",
+  "ENV=${2:-dev}",
+  "VM=${3:-poc-vm-001}",
+  "",
+  "G='\\033[0;32m' R='\\033[0;31m' B='\\033[0;34m' N='\\033[0m'",
+  "ok()   { echo -e \"${G}done${N} $1\"; }",
+  "fail() { echo -e \"${R}fail${N} $1\"; exit 1; }",
+  "info() { echo -e \"${B}>${N} $1\"; }",
+  "",
+  "export VAULT_ADDR=http://localhost:8200",
+  "export VAULT_TOKEN=root",
+  "",
+  "echo ''",
+  "echo \"  VM: $VM  |  Group: $GROUP  |  Env: $ENV\"",
+  "echo '  ──────────────────────────────────────────'",
+  "",
+  "# 1. OPA policy gate",
+  "echo ''",
+  "echo '==> [1/4] OPA policy check...'",
+  "RESP=$(curl -sf -X POST http://localhost:8181/v1/data/infra/authz/vm \\",
+  "  -H 'Content-Type: application/json' \\",
+  "  -d \"{\\\"input\\\":{\\\"user\\\":{\\\"group\\\":\\\"$GROUP\\\"},\\\"request\\\":{\\\"env\\\":\\\"$ENV\\\",\\\"cpu\\\":2,\\\"ram_gb\\\":2,\\\"vlan\\\":20}}}\")",
+  "ALLOW=$(echo \"$RESP\" | jq -r '.result.allow // false')",
+  "REASONS=$(echo \"$RESP\" | jq -r '[.result.deny // [] | .[]] | join(\"; \")')",
+  "[ \"$ALLOW\" = 'true' ] || fail \"DENIED -- $REASONS\"",
+  "ok 'Policy approved'",
+  "",
+  "# 2. Vault — register VM",
+  "echo ''",
+  "echo '==> [2/4] Registering in Vault...'",
+  "vault kv put \"secret/vms/$VM\" \\",
+  "  env=\"$ENV\" group=\"$GROUP\" \\",
+  "  created=\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \\",
+  "  status='provisioning'",
+  "ok \"Metadata stored at secret/vms/$VM\"",
+  "",
+  "# 3. Terraform",
+  "echo ''",
+  "echo '==> [3/4] Terraform apply...'",
+  "cd terraform",
+  "terraform init -upgrade -input=false -no-color 2>&1 | grep -E 'Initializing|complete|error' || true",
+  "terraform apply -auto-approve -no-color \\",
+  "  -var=\"vm_name=$VM\" \\",
+  "  -var=\"vault_token=$VAULT_TOKEN\"",
+  "VM_IP=$(terraform output -raw vm_ip 2>/dev/null || echo 'pending')",
+  "ok \"VM up -- NAT IP: $VM_IP\"",
+  "cd ..",
+  "",
+  "# 4. WireGuard peer",
+  "echo ''",
+  "echo '==> [4/4] WireGuard peer...'",
+  "VM_PUB=$(vault kv get -field=public_key \"secret/wireguard/$VM\" 2>/dev/null || echo '')",
+  "if [ -n \"$VM_PUB\" ]; then",
+  "  sudo wg set wg0 peer \"$VM_PUB\" allowed-ips '10.100.0.10/32'",
+  "  ok 'Peer added: 10.100.0.10'",
+  "else",
+  "  info 'Key not yet available -- VM still booting'",
+  "  info 'Run: sudo wg set wg0 peer <pubkey> allowed-ips 10.100.0.10/32'",
+  "fi",
+  "",
+  "vault kv patch \"secret/vms/$VM\" status='running' ip=\"$VM_IP\" > /dev/null",
+  "",
+  "echo ''",
+  "echo '  ──────────────────────────────────────────'",
+  "ok 'Done'",
+  "echo \"  SSH:    ssh ubuntu@$VM_IP\"",
+  "echo '  Tunnel: ping 10.100.0.10'",
+  "echo \"  Vault:  vault kv get secret/vms/$VM\"",
+  "echo ''"
+].join("\n"));
+
+f("scripts/teardown.sh", "🗑", "Scripts", [
+  "#!/usr/bin/env bash",
+  "# teardown.sh — Remove a VM and all associated resources",
+  "# Usage: bash scripts/teardown.sh <vm-name>",
+  "set -euo pipefail",
+  "",
+  "VM=${1:-poc-vm-001}",
+  "export VAULT_ADDR=http://localhost:8200",
+  "export VAULT_TOKEN=root",
+  "",
+  "echo \"==> Tearing down $VM...\"",
+  "",
+  "# 1. Remove WireGuard peer",
+  "VM_PUB=$(vault kv get -field=public_key \"secret/wireguard/$VM\" 2>/dev/null || echo '')",
+  "if [ -n \"$VM_PUB\" ]; then",
+  "  sudo wg set wg0 peer \"$VM_PUB\" remove 2>/dev/null || true",
+  "  echo 'WireGuard peer removed'",
+  "fi",
+  "",
+  "# 2. Terraform destroy",
+  "cd terraform",
+  "terraform destroy -auto-approve \\",
+  "  -var=\"vm_name=$VM\" \\",
+  "  -var=\"vault_token=$VAULT_TOKEN\" || true",
+  "cd ..",
+  "",
+  "# 3. Revoke Vault secrets",
+  "vault kv delete \"secret/vms/$VM\"       2>/dev/null || true",
+  "vault kv delete \"secret/wireguard/$VM\" 2>/dev/null || true",
+  "echo 'Vault secrets revoked'",
+  "",
+  "# 4. Optionally stop Docker stack",
+  "read -rp 'Stop Docker stack (Keycloak/Vault/OPA)? [y/N] ' yn",
+  "[ \"${yn,,}\" = 'y' ] && docker compose down || true",
+  "",
+  "echo 'Teardown complete'"
+].join("\n"));
+
+// ── Build sidebar ─────────────────────────────────────────
+var GROUP_ORDER = ["Root", "Scripts", "OPA", "Vault", "Terraform"];
+var groups = {};
+FILES.forEach(function(f) {
+  if (!groups[f.group]) groups[f.group] = [];
+  groups[f.group].push(f);
+});
+
+var sidebar = document.getElementById("sidebar");
+document.getElementById("file-count").textContent = FILES.length + " files";
+
+GROUP_ORDER.forEach(function(g) {
+  if (!groups[g]) return;
+  var lbl = document.createElement("div");
+  lbl.className = "grp-label";
+  lbl.textContent = g;
+  sidebar.appendChild(lbl);
+
+  groups[g].forEach(function(file) {
+    var btn = document.createElement("button");
+    btn.className = "file-btn";
+    btn.dataset.path = file.path;
+    btn.innerHTML = "<span>" + file.icon + "</span>" + file.path;
+    btn.addEventListener("click", function() { select(file.path); });
+    sidebar.appendChild(btn);
+  });
+});
+
+// ── Selection ─────────────────────────────────────────────
+var current = null;
+
+function select(path) {
+  current = FILES.find(function(f) { return f.path === path; });
+  if (!current) return;
+  document.querySelectorAll(".file-btn").forEach(function(b) {
+    b.classList.toggle("active", b.dataset.path === path);
+  });
+  document.getElementById("cur-file").textContent = path;
+  document.getElementById("code").textContent = current.content;
+}
+
+select(FILES[0].path);
+
+// ── Toast ─────────────────────────────────────────────────
+function toast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(function() { el.classList.remove("show"); }, 2400);
+}
+
+// ── Actions ───────────────────────────────────────────────
+function copyFile() {
+  if (!current) return;
+  navigator.clipboard.writeText(current.content)
+    .then(function() { toast("Copied — " + current.path); });
+}
+
+function dlFile() {
+  if (!current) return;
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([current.content], { type: "text/plain" }));
+  a.download = current.path.split("/").pop();
+  a.click();
+  toast("Downloaded " + a.download);
+}
+
+function dlAll() {
+  var lines = [
+    "#!/usr/bin/env bash",
+    "# poc-infra self-extracting installer",
+    "# Usage: bash poc-infra.sh",
+    "set -e",
+    "echo 'Extracting poc-infra...'",
+    "mkdir -p poc-infra && cd poc-infra"
+  ];
+  FILES.forEach(function(f) {
+    var dir = f.path.includes("/") ? f.path.substring(0, f.path.lastIndexOf("/")) : "";
+    if (dir) lines.push("mkdir -p " + dir);
+    lines.push("cat > " + f.path + " << 'ENDOFFILE'");
+    lines.push(f.content);
+    lines.push("ENDOFFILE");
+  });
+  lines = lines.concat([
+    "chmod +x scripts/bootstrap.sh scripts/provision-vm.sh scripts/teardown.sh",
+    "echo ''",
+    "echo 'poc-infra ready. Next steps:'",
+    "echo '  cd poc-infra'",
+    "echo '  docker compose up -d'",
+    "echo '  bash scripts/bootstrap.sh'",
+    "echo '  bash scripts/provision-vm.sh vm-operators dev poc-vm-001'"
+  ]);
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/x-shellscript" }));
+  a.download = "poc-infra.sh";
+  a.click();
+  toast("Downloaded poc-infra.sh");
+}
+</script>
+</body>
+</html>
