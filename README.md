@@ -1,4 +1,6 @@
-Start here for the complete scaffold as an [interactive file browser](poc_generator.html).
+# Start here for the complete scaffold as an [interactive file browser](poc_generator.html).
+
+## Design specifications [HERE](DesignSpec.md)
 
 ## Getting the Files
 
