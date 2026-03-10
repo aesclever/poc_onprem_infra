@@ -1,4 +1,4 @@
-Here's the complete scaffold as an [interactive file browser](poc_generator.html). Here's how to use it:
+Start here for the complete scaffold as an [interactive file browser](poc_generator.html).
 
 ## Getting the Files
 
