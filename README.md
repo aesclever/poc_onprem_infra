@@ -32,7 +32,7 @@ bash scripts/bootstrap.sh
 bash scripts/provision-vm.sh vm-operators dev poc-vm-001
 ```
 
----
+
 
 ## What Each File Does
 
