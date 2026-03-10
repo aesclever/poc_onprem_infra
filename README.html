@@ -1,0 +1,110 @@
+<h1 id="poc-infra">poc-infra</h1>
+<p>Bare-minimum proof of concept for an on-premise infrastructure stack.
+<strong>AIM · VM Provisioning · WireGuard Security</strong></p>
+<h2 id="stack">Stack</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Tool</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity</td>
+<td>Keycloak 24</td>
+<td>OIDC / user management</td>
+</tr>
+<tr>
+<td>Secrets</td>
+<td>HashiCorp Vault 1.16</td>
+<td>Key/secret lifecycle</td>
+</tr>
+<tr>
+<td>Policy</td>
+<td>OPA 0.65</td>
+<td>Provisioning authorization</td>
+</tr>
+<tr>
+<td>Hypervisor</td>
+<td>KVM / libvirt</td>
+<td>VM runtime</td>
+</tr>
+<tr>
+<td>Provisioning</td>
+<td>Terraform + libvirt</td>
+<td>Declarative VM lifecycle</td>
+</tr>
+<tr>
+<td>Tunnel</td>
+<td>WireGuard</td>
+<td>Encrypted VM network</td>
+</tr>
+</tbody>
+</table>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Ubuntu 22.04 LTS</li>
+<li>16 GB RAM, 4 cores, 100 GB free disk</li>
+<li>VT-x / AMD-V enabled in BIOS</li>
+<li>Internet access</li>
+</ul>
+<h2 id="quickstart">Quickstart</h2>
+<pre><code class="lang-bash"># <span class="hljs-number">1</span>. Install dependencies
+sudo apt <span class="hljs-keyword">update</span> &amp;&amp; sudo apt install -<span class="hljs-keyword">y</span> \
+  qemu-kvm libvirt-daemon-<span class="hljs-built_in">system</span> libvirt-clients virtinst \
+  wireguard wireguard-tools docker.io docker-compose-plugin \
+  curl jq git unzip
+
+curl -fsSL http<span class="hljs-variable">s:</span>//apt.releases.hashicorp.<span class="hljs-keyword">com</span>/gpg \
+  | sudo gpg --dearmor -<span class="hljs-keyword">o</span> /usr/share/keyrings/hashicorp.gpg
+<span class="hljs-keyword">echo</span> <span class="hljs-comment">"deb [signed-by=/usr/share/keyrings/hashicorp.gpg] \</span>
+  http<span class="hljs-variable">s:</span>//apt.releases.hashicorp.<span class="hljs-keyword">com</span> $(lsb_release -<span class="hljs-keyword">cs</span>) main<span class="hljs-comment">" \</span>
+  | sudo tee /etc/apt/sources.<span class="hljs-keyword">list</span>.d/hashicorp.<span class="hljs-keyword">list</span>
+sudo apt <span class="hljs-keyword">update</span> &amp;&amp; sudo apt install -<span class="hljs-keyword">y</span> terraform
+
+sudo usermod -aG libvirt,docker $USER &amp;&amp; newgrp libvirt
+
+# <span class="hljs-number">2</span>. Start AIM stack
+docker compose <span class="hljs-keyword">up</span> -d
+
+# <span class="hljs-number">3</span>. Bootstrap Vault + OPA + WireGuard
+bash scripts/bootstrap.<span class="hljs-keyword">sh</span>
+
+# <span class="hljs-number">4</span>. Provision <span class="hljs-keyword">a</span> VM (full workflow)
+bash scripts/provision-<span class="hljs-keyword">vm</span>.<span class="hljs-keyword">sh</span> <span class="hljs-keyword">vm</span>-operators dev poc-<span class="hljs-keyword">vm</span>-<span class="hljs-number">001</span>
+
+# <span class="hljs-number">5</span>. Test policy denial
+bash scripts/provision-<span class="hljs-keyword">vm</span>.<span class="hljs-keyword">sh</span> dev-team prod poc-<span class="hljs-keyword">vm</span>-<span class="hljs-number">002</span>
+</code></pre>
+<h2 id="access">Access</h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>URL</th>
+<th>Credentials</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keycloak</td>
+<td><a href="http://localhost:8080">http://localhost:8080</a></td>
+<td>admin/admin</td>
+</tr>
+<tr>
+<td>Vault</td>
+<td><a href="http://localhost:8200">http://localhost:8200</a></td>
+<td>token: root</td>
+</tr>
+<tr>
+<td>OPA</td>
+<td><a href="http://localhost:8181">http://localhost:8181</a></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="teardown">Teardown</h2>
+<pre><code class="lang-bash"><span class="hljs-keyword">bash </span><span class="hljs-keyword">scripts/teardown.sh </span>poc-vm-001
+</code></pre>
